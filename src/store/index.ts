@@ -3,12 +3,16 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { Chat, ChatMessage, ChatOptions, OllamaModel } from "../api/types";
 import { DEFAULT_OPTIONS } from "../api/types";
 
+export type Theme = "auto" | "light" | "dark";
+
 interface AppState {
   models: OllamaModel[];
   activeChatId: string | null;
   chats: Record<string, Chat>;
   defaultOptions: ChatOptions;
+  theme: Theme;
 
+  setTheme: (theme: Theme) => void;
   setModels: (models: OllamaModel[]) => void;
   newChat: (model?: string, systemPrompt?: string) => string;
   selectChat: (id: string) => void;
@@ -28,7 +32,9 @@ export const useStore = create<AppState>()(
       activeChatId: null,
       chats: {},
       defaultOptions: DEFAULT_OPTIONS,
+      theme: "auto",
 
+      setTheme: (theme) => set({ theme }),
       setModels: (models) => set({ models }),
 
       newChat: (model, systemPrompt) => {
@@ -192,6 +198,7 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         chats: state.chats,
         activeChatId: state.activeChatId,
+        theme: state.theme,
       }),
     },
   ),

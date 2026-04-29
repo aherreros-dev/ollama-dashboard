@@ -2,50 +2,38 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import type { OllamaModel } from "../api/types";
 
-interface ModelSelectorProps {
-  className?: string;
-}
-
-export function ModelSelector({ className }: ModelSelectorProps) {
+export function ModelSelector() {
   const { models, chats, activeChatId, setChatModel } = useStore();
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState("");
 
   const activeChat = activeChatId ? chats[activeChatId] : null;
 
   useEffect(() => {
-    if (activeChat) {
-      setSelected(activeChat.model);
-    }
+    if (activeChat) setSelected(activeChat.model);
   }, [activeChat?.model]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newModel = e.target.value;
-    setSelected(newModel);
-    if (activeChatId) {
-      setChatModel(activeChatId, newModel);
-    }
+    setSelected(e.target.value);
+    if (activeChatId) setChatModel(activeChatId, e.target.value);
   };
 
-  const formatModelOption = (model: OllamaModel) => {
-    const details = model.details || {};
-    const paramSize = details.parameter_size || "";
-    const quant = details.quantization_level || "";
-    return `${model.name} · ${paramSize} · ${quant}`;
+  const fmt = (m: OllamaModel) => {
+    const p = m.details?.parameter_size || "";
+    const q = m.details?.quantization_level || "";
+    return `${m.name}${p ? ` · ${p}` : ""}${q ? ` · ${q}` : ""}`;
   };
 
   return (
     <select
       value={selected}
       onChange={handleChange}
-      className={`bg-zinc-800 text-zinc-100 px-3 py-1.5 rounded border border-zinc-700 text-sm focus:outline-none focus:border-zinc-500 ${className || ""}`}
+      className="bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-100 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-colors max-w-xs truncate"
     >
       {models.length === 0 ? (
-        <option value="">No models available</option>
+        <option value="">Sin modelos</option>
       ) : (
-        models.map((model) => (
-          <option key={model.name} value={model.name}>
-            {formatModelOption(model)}
-          </option>
+        models.map((m) => (
+          <option key={m.name} value={m.name}>{fmt(m)}</option>
         ))
       )}
     </select>

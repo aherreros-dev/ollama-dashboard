@@ -16,36 +16,20 @@ export const MessageBubble = memo(function MessageBubble({
   isStreaming = false,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
-  const isSystem = message.role === "system";
-
-  const baseClasses = "max-w-[80%] rounded-lg px-4 py-2 text-sm";
-
-  let bgClasses = "";
-  if (isUser) {
-    bgClasses = "bg-blue-600 text-white ml-auto";
-  } else if (isSystem) {
-    bgClasses = "bg-zinc-700 text-zinc-300";
-  } else {
-    bgClasses = "bg-zinc-900 border border-zinc-800 text-zinc-100";
-  }
+  const isAssistant = message.role === "assistant";
 
   const renderContent = () => {
     if (message.images && message.images.length > 0) {
       return (
         <div className="space-y-2">
-          {message.images.map((img, idx) => (
-            <img
-              key={idx}
-              src={img}
-              alt="Uploaded"
-              className="max-w-full rounded"
-            />
+          {message.images.map((img, i) => (
+            <img key={i} src={img} alt="" className="max-w-full rounded-lg" />
           ))}
           {message.content && (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
-              className="prose prose-invert prose-sm max-w-none"
+              className="prose prose-sm max-w-none dark:prose-invert"
             >
               {message.content}
             </ReactMarkdown>
@@ -55,25 +39,39 @@ export const MessageBubble = memo(function MessageBubble({
     }
 
     if (!message.content && isStreaming) {
-      return <span className="animate-pulse">▍</span>;
+      return <span className="animate-pulse text-gray-400 dark:text-zinc-400">▍</span>;
     }
 
-    if (message.role === "assistant" || message.role === "system") {
+    if (isAssistant || message.role === "system") {
       return (
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
-          className="prose prose-invert prose-sm max-w-none"
+          className="prose prose-sm max-w-none dark:prose-invert"
         >
           {message.content}
         </ReactMarkdown>
       );
     }
 
-    return <p className="whitespace-pre-wrap">{message.content}</p>;
+    return <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>;
   };
 
+  if (isUser) {
+    return (
+      <div className="flex justify-end mb-3">
+        <div className="max-w-[75%] bg-blue-600 text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm shadow-sm">
+          {renderContent()}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`${baseClasses} ${bgClasses} mb-3`}>{renderContent()}</div>
+    <div className="flex justify-start mb-3">
+      <div className="max-w-[80%] bg-white dark:bg-zinc-800/80 border border-gray-100 dark:border-zinc-700/50 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm shadow-sm text-gray-800 dark:text-zinc-100">
+        {renderContent()}
+      </div>
+    </div>
   );
 });

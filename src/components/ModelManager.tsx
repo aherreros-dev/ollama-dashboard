@@ -1,14 +1,10 @@
 import { useState, useEffect } from "react";
-import { Download, Trash2, AlertCircle } from "lucide-react";
+import { Download, Trash2, AlertCircle, RefreshCw } from "lucide-react";
 import * as api from "../api/ollama";
 import { useStore } from "../store";
 import type { PullProgress } from "../api/types";
 
-interface ModelManagerProps {
-  className?: string;
-}
-
-export function ModelManager({ className }: ModelManagerProps) {
+export function ModelManager({ className }: { className?: string }) {
   const { models, setModels } = useStore();
   const [pullName, setPullName] = useState("");
   const [pulling, setPulling] = useState(false);
@@ -18,37 +14,25 @@ export function ModelManager({ className }: ModelManagerProps) {
   useEffect(() => {
     const unlisten = api.onPullProgress((progress) => {
       setPullProgress(progress);
-      if (
-        progress.status === "success" ||
-        progress.status === "already running"
-      ) {
+      if (progress.status === "success") {
         setPulling(false);
         setPullProgress(null);
         refreshModels();
       }
     });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
+    return () => { unlisten.then((fn) => fn()); };
   }, []);
 
   const refreshModels = async () => {
-    try {
-      const list = await api.listModels();
-      setModels(list);
-    } catch (e) {
-      console.error("Failed to list models:", e);
-    }
+    try { setModels(await api.listModels()); }
+    catch (e) { console.error(e); }
   };
 
   const handlePull = async () => {
     if (!pullName.trim()) return;
-
     setPulling(true);
     setError(null);
-    setPullProgress({ name: pullName, status: "starting..." });
-
+    setPullProgress({ name: pullName, status: "Iniciando…" });
     try {
       await api.pullModel(pullName.trim());
     } catch (e) {
@@ -59,108 +43,101 @@ export function ModelManager({ className }: ModelManagerProps) {
   };
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Delete model "${name}"?`)) return;
-
-    try {
-      await api.deleteModel(name);
-      await refreshModels();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
+    if (!confirm(`¿Eliminar el modelo "${name}"?`)) return;
+    try { await api.deleteModel(name); await refreshModels(); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
-  const formatSize = (bytes: number) => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    if (gb >= 1) return `${gb.toFixed(1)} GB`;
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(0)} MB`;
+  const fmtSize = (b: number) => {
+    const gb = b / 1073741824;
+    return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(b / 1048576).toFixed(0)} MB`;
   };
 
   return (
-    <div className={`p-6 ${className || ""}`}>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">
-        Model Manager
-      </h2>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-900/50 border border-red-800 rounded-lg flex items-center gap-2 text-red-200">
-          <AlertCircle size={16} />
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
-
-      <div className="mb-8">
-        <h3 className="text-sm font-medium text-zinc-400 mb-3">
-          Pull New Model
-        </h3>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={pullName}
-            onChange={(e) => setPullName(e.target.value)}
-            placeholder="e.g., llama3.1:8b"
-            className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-500"
-            disabled={pulling}
-          />
-          <button
-            onClick={handlePull}
-            disabled={pulling || !pullName.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm flex items-center gap-2"
-          >
-            <Download size={16} />
-            {pulling ? "Pulling..." : "Pull"}
+    <div className={`p-6 overflow-y-auto ${className || ""}`}>
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-zinc-100">Modelos</h2>
+          <button onClick={refreshModels} className="p-2 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+            <RefreshCw size={16} />
           </button>
         </div>
 
-        {pulling && pullProgress && (
-          <div className="mt-3 p-3 bg-zinc-800 rounded-lg">
-            <div className="text-sm text-zinc-300">{pullProgress.status}</div>
-            {pullProgress.progress !== undefined && (
-              <div className="mt-2 h-2 bg-zinc-700 rounded overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 transition-all"
-                  style={{ width: `${Math.min(pullProgress.progress, 100)}%` }}
-                />
-              </div>
-            )}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2 text-red-700 dark:text-red-300">
+            <AlertCircle size={15} />
+            <span className="text-sm">{error}</span>
           </div>
         )}
-      </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-zinc-400 mb-3">
-          Installed Models
-        </h3>
-        <div className="space-y-2">
-          {models.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No models installed</p>
-          ) : (
-            models.map((model) => {
-              const details = model.details || {};
-              return (
+        {/* Pull */}
+        <div className="mb-8 p-4 bg-white dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-2xl">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-3">Descargar modelo</h3>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={pullName}
+              onChange={(e) => setPullName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !pulling && handlePull()}
+              placeholder="ej. llama3.1:8b"
+              className="flex-1 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-gray-800 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 placeholder-gray-400 dark:placeholder-zinc-500"
+              disabled={pulling}
+            />
+            <button
+              onClick={handlePull}
+              disabled={pulling || !pullName.trim()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-white text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <Download size={15} />
+              {pulling ? "Descargando…" : "Descargar"}
+            </button>
+          </div>
+
+          {pulling && pullProgress && (
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mb-1.5">{pullProgress.status}</p>
+              {pullProgress.progress !== undefined && (
+                <div className="h-1.5 bg-gray-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(pullProgress.progress, 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Installed */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-zinc-400 mb-3">
+            Instalados ({models.length})
+          </h3>
+          <div className="space-y-2">
+            {models.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-zinc-500 py-4 text-center">No hay modelos instalados</p>
+            ) : (
+              models.map((model) => (
                 <div
                   key={model.name}
-                  className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-lg"
+                  className="flex items-center justify-between p-3.5 bg-white dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700/50 rounded-xl"
                 >
                   <div>
-                    <div className="text-sm font-medium text-zinc-100">
-                      {model.name}
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-1">
-                      {details.parameter_size} · {details.quantization_level} ·{" "}
-                      {formatSize(model.size)}
-                    </div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-zinc-100">{model.name}</p>
+                    <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                      {model.details?.parameter_size} · {model.details?.quantization_level} · {fmtSize(model.size)}
+                    </p>
                   </div>
                   <button
                     onClick={() => handleDelete(model.name)}
-                    className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-900/20 rounded"
+                    className="p-2 text-gray-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
-              );
-            })
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
