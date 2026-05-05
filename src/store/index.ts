@@ -40,7 +40,7 @@ export const useStore = create<AppState>()(
       newChat: (model, systemPrompt) => {
         const id = crypto.randomUUID();
         const models = get().models;
-        const defaultModel = model || models[0]?.name || "gemma3:e2b";
+        const defaultModel = model || models[0]?.name || "gemma4:e2b";
 
         const newChat: Chat = {
           id,

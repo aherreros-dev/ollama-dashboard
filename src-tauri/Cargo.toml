@@ -2,7 +2,7 @@
 name = "ollama-dash"
 version = "1.0.0"
 description = "A self-hosted unified web dashboard for Ollama"
-authors = ["you"]
+authors = []
 edition = "2021"
 
 [lib]

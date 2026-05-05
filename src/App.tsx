@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
-import { SlidersHorizontal, Database, Sun, Moon, Monitor } from "lucide-react";
+import { SlidersHorizontal, Database, Sun, Moon, Monitor, ImageIcon } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { ModelSelector } from "./components/ModelSelector";
 import { ChatView } from "./components/ChatView";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ModelManager } from "./components/ModelManager";
+import { ImageGenerator } from "./components/ImageGenerator";
 import { useStore } from "./store";
 import type { Theme } from "./store";
 import * as api from "./api/ollama";
 
-type View = "chat" | "models";
+type View = "chat" | "models" | "images";
 
 const THEME_CYCLE: Theme[] = ["auto", "light", "dark"];
 const THEME_ICON = { auto: Monitor, light: Sun, dark: Moon };
@@ -21,7 +22,6 @@ export default function App() {
   const { setModels, newChat, activeChatId, models, theme, setTheme } = useStore();
   const [ollamaError, setOllamaError] = useState<string | null>(null);
 
-  // Apply dark class to <html> based on theme
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "dark") {
@@ -32,7 +32,6 @@ export default function App() {
       root.classList.remove("dark");
       return;
     }
-    // auto
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = (e: MediaQueryList | MediaQueryListEvent) => {
       e.matches ? root.classList.add("dark") : root.classList.remove("dark");
@@ -70,6 +69,20 @@ export default function App() {
 
   const ThemeIcon = THEME_ICON[theme];
 
+  const navBtn = (v: View, icon: React.ReactNode, title: string) => (
+    <button
+      onClick={() => { setView(v); setShowSettings(false); }}
+      className={`p-2 rounded transition-colors ${
+        view === v
+          ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
+          : "text-gray-400 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-700 dark:hover:text-zinc-100"
+      }`}
+      title={title}
+    >
+      {icon}
+    </button>
+  );
+
   return (
     <div className="h-screen flex bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 transition-colors duration-200">
       <Sidebar onNewChat={handleNewChat} />
@@ -86,6 +99,9 @@ export default function App() {
           <div className="flex items-center gap-3 min-w-0">
             <h1 className="text-base font-semibold shrink-0 tracking-tight">ollama-dash</h1>
             {view === "chat" && <ModelSelector />}
+            {view === "images" && (
+              <span className="text-sm text-gray-400 dark:text-zinc-500">Stable Diffusion</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -96,17 +112,8 @@ export default function App() {
             >
               <ThemeIcon size={17} />
             </button>
-            <button
-              onClick={() => { setView("models"); setShowSettings(false); }}
-              className={`p-2 rounded transition-colors ${
-                view === "models"
-                  ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
-                  : "text-gray-400 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-700 dark:hover:text-zinc-100"
-              }`}
-              title="Gestionar modelos"
-            >
-              <Database size={17} />
-            </button>
+            {navBtn("images", <ImageIcon size={17} />, "Generar imágenes")}
+            {navBtn("models", <Database size={17} />, "Gestionar modelos")}
             {view === "chat" && activeChatId && (
               <button
                 onClick={() => setShowSettings((s) => !s)}
@@ -129,6 +136,8 @@ export default function App() {
               <ChatView />
               {activeChatId && showSettings && <SettingsPanel />}
             </>
+          ) : view === "images" ? (
+            <ImageGenerator />
           ) : (
             <ModelManager className="flex-1" />
           )}

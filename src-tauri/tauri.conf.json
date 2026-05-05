@@ -1,7 +1,7 @@
 {
   "productName": "ollama-dash",
   "version": "1.0.0",
-  "identifier": "dev.local.ollamadash",
+  "identifier": "app.ollama-dash",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc http://127.0.0.1:11434"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc http://127.0.0.1:11434 http://127.0.0.1:7860 http://127.0.0.1:7861"
     }
   },
   "bundle": {

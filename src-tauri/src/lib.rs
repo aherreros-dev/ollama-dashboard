@@ -3,12 +3,40 @@ mod ollama;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::process::{Child, Command};
 use std::sync::Mutex;
 #[cfg(debug_assertions)]
 use tauri::Manager;
 
 static STREAM_REGISTRY: Lazy<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+
+// Handle to the SD server process — killed when the app exits.
+static SD_PROCESS: Lazy<Mutex<Option<Child>>> = Lazy::new(|| Mutex::new(None));
+
+fn start_sd_server() {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let script = format!("{home}/.ollama-dash/stable-diffusion/start.sh");
+    if !std::path::Path::new(&script).exists() {
+        return; // setup.sh hasn't been run yet — SD panel will show setup instructions
+    }
+    match Command::new("bash").arg(&script).spawn() {
+        Ok(child) => {
+            if let Ok(mut guard) = SD_PROCESS.lock() {
+                *guard = Some(child);
+            }
+        }
+        Err(e) => eprintln!("[SD] Could not start server: {e}"),
+    }
+}
+
+fn stop_sd_server() {
+    if let Ok(mut guard) = SD_PROCESS.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+        }
+    }
+}
 
 #[tauri::command]
 async fn list_models() -> Result<Value, String> {
@@ -93,12 +121,19 @@ pub fn run() {
             if let Some(window) = _app.get_webview_window("main") {
                 window.open_devtools();
             }
-            // Start ollama automatically if not already running
+            // Start Ollama if not running
             tauri::async_runtime::spawn(async {
                 ollama::ensure_ollama_running().await;
             });
+            // Start SD server (no-op if setup.sh hasn't been run yet)
+            start_sd_server();
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                stop_sd_server();
+            }
+        });
 }
