@@ -110,7 +110,15 @@ def _generator(seed: int):
 
 def _apply_sampler(pipe, name: str):
     cls = SCHEDULERS.get(name, EulerAncestralDiscreteScheduler)
-    pipe.scheduler = cls.from_config(pipe.scheduler.config)
+    # Some keys are scheduler-specific and cause errors when copied across types
+    incompatible = {"final_sigmas_type", "algorithm_type", "solver_type",
+                    "lower_order_final", "use_karras_sigmas", "use_exponential_sigmas",
+                    "use_beta_sigmas", "timestep_spacing"}
+    config = {k: v for k, v in pipe.scheduler.config.items() if k not in incompatible}
+    try:
+        pipe.scheduler = cls.from_config(config)
+    except Exception:
+        pipe.scheduler = cls.from_config(pipe.scheduler.config)
 
 def _on_step(pipe, step, _ts, kwargs):
     """Progress callback: updates state and decodes a preview every 5 steps."""
