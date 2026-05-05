@@ -13,7 +13,16 @@ from pathlib import Path
 
 import torch
 import uvicorn
-from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
+from diffusers import (
+    StableDiffusionPipeline,
+    StableDiffusionImg2ImgPipeline,
+    EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    DPMSolverMultistepScheduler,
+    DPMSolverSDEScheduler,
+    DDIMScheduler,
+    PNDMScheduler,
+)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
@@ -25,9 +34,19 @@ SD_DIR     = Path(__file__).parent
 MODELS_DIR = SD_DIR / "models"
 MODEL_ID   = "Lykon/dreamshaper-8"
 DEVICE     = "mps" if torch.backends.mps.is_available() else "cpu"
-# float16 causes type-mismatch errors on MPS; float32 is required for Apple Silicon
-DTYPE      = torch.float32
+# Load UNet in float16 for speed; VAE decoder is patched to run in float32
+# to avoid the NaN/black-image bug on Apple Silicon MPS.
+DTYPE      = torch.float16 if DEVICE == "mps" else torch.float32
 PORT       = 7860
+
+SCHEDULERS = {
+    "Euler a":   EulerAncestralDiscreteScheduler,
+    "Euler":     EulerDiscreteScheduler,
+    "DPM++ 2M":  DPMSolverMultistepScheduler,
+    "DPM++ SDE": DPMSolverSDEScheduler,
+    "DDIM":      DDIMScheduler,
+    "PNDM":      PNDMScheduler,
+}
 
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -41,6 +60,15 @@ _progress = {"step": 0, "total": 20, "percent": 0.0, "image": None}
 
 # ── Model loader (background thread so server is reachable immediately) ───────
 
+def _patch_vae_for_mps(pipe):
+    """Keep VAE decoder in float32 to avoid black images on MPS with float16."""
+    pipe.vae.decoder = pipe.vae.decoder.to(dtype=torch.float32)
+    pipe.vae.post_quant_conv = pipe.vae.post_quant_conv.to(dtype=torch.float32)
+    orig_decode = pipe.vae.decode
+    def _safe_decode(z, **kwargs):
+        return orig_decode(z.to(dtype=torch.float32), **kwargs)
+    pipe.vae.decode = _safe_decode
+
 def _load():
     global _pipe, _img2img, _ready
     print(f"[SD] Loading {MODEL_ID} on {DEVICE} ({DTYPE}) …")
@@ -51,6 +79,8 @@ def _load():
         safety_checker=None,
         requires_safety_checker=False,
     ).to(DEVICE)
+    if DEVICE == "mps":
+        _patch_vae_for_mps(_pipe)
     _pipe.enable_attention_slicing()
     _pipe.enable_vae_slicing()
     _img2img = StableDiffusionImg2ImgPipeline(**_pipe.components).to(DEVICE)
@@ -77,6 +107,10 @@ def _generator(seed: int):
     g = torch.Generator(DEVICE)
     g.manual_seed(seed)
     return g
+
+def _apply_sampler(pipe, name: str):
+    cls = SCHEDULERS.get(name, EulerAncestralDiscreteScheduler)
+    pipe.scheduler = cls.from_config(pipe.scheduler.config)
 
 def _on_step(pipe, step, _ts, kwargs):
     """Progress callback: updates state and decodes a preview every 5 steps."""
@@ -114,11 +148,7 @@ async def sd_models():
 
 @app.get("/sdapi/v1/samplers")
 async def samplers():
-    return [
-        {"name": "Euler a"}, {"name": "Euler"},
-        {"name": "DPM++ 2M"}, {"name": "DPM++ SDE"},
-        {"name": "DDIM"}, {"name": "PNDM"},
-    ]
+    return [{"name": k} for k in SCHEDULERS]
 
 @app.get("/sdapi/v1/progress")
 async def get_progress():
@@ -146,10 +176,10 @@ class Txt2ImgReq(BaseModel):
     negative_prompt: str   = ""
     width:           int   = 512
     height:          int   = 512
-    steps:           int   = 20
+    steps:           int   = 15
     cfg_scale:       float = 7.0
     seed:            int   = -1
-    sampler_name:    str   = "Euler a"
+    sampler_name:    str   = "DPM++ 2M"
     batch_size:      int   = 1
 
 class Img2ImgReq(BaseModel):
@@ -159,7 +189,7 @@ class Img2ImgReq(BaseModel):
     denoising_strength: float     = 0.75
     width:              int       = 512
     height:             int       = 512
-    steps:              int       = 20
+    steps:              int       = 15
     cfg_scale:          float     = 7.0
     seed:               int       = -1
     batch_size:         int       = 1
@@ -173,6 +203,7 @@ async def txt2img(req: Txt2ImgReq):
     _progress.update({"total": req.steps, "step": 0, "percent": 0.0, "image": None})
 
     with _lock:
+        _apply_sampler(_pipe, req.sampler_name)
         result = _pipe(
             prompt=req.prompt,
             negative_prompt=req.negative_prompt,
@@ -199,6 +230,7 @@ async def img2img(req: Img2ImgReq):
     _progress.update({"total": req.steps, "step": 0, "percent": 0.0, "image": None})
 
     with _lock:
+        _apply_sampler(_img2img, req.sampler_name)
         result = _img2img(
             prompt=req.prompt,
             negative_prompt=req.negative_prompt,
