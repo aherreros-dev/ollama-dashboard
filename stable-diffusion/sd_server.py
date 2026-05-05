@@ -50,6 +50,10 @@ def _load():
         safety_checker=None,
         requires_safety_checker=False,
     ).to(DEVICE)
+    # MPS + float16 produces NaN in the VAE decoder → black images.
+    # Keeping the VAE in float32 fixes this while the UNet stays in float16.
+    if DEVICE == "mps":
+        _pipe.vae = _pipe.vae.to(dtype=torch.float32)
     _pipe.enable_attention_slicing()
     _pipe.enable_vae_slicing()
     _img2img = StableDiffusionImg2ImgPipeline(**_pipe.components).to(DEVICE)
@@ -89,7 +93,7 @@ def _on_step(pipe, step, _ts, kwargs):
             if latents is not None:
                 with torch.no_grad():
                     decoded = pipe.vae.decode(
-                        latents / pipe.vae.config.scaling_factor
+                        latents.to(dtype=torch.float32) / pipe.vae.config.scaling_factor
                     ).sample
                     decoded = (decoded / 2 + 0.5).clamp(0, 1)
                     arr = (decoded.cpu().permute(0, 2, 3, 1).float().numpy()[0] * 255).round().astype("uint8")
