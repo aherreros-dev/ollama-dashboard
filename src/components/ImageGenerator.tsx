@@ -237,30 +237,23 @@ export function ImageGenerator() {
             Stable Diffusion no disponible
           </h3>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mb-5">
-            Necesitas lanzar AUTOMATIC1111 WebUI localmente. Pasos optimizados para Mac M1:
+            El servidor de imagen no está activo. Si aún no lo has instalado, ejecuta el setup una vez:
           </p>
           <div className="bg-gray-50 dark:bg-zinc-800 rounded-xl p-4 text-left space-y-3">
             <div>
               <p className="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                1. Instalar y arrancar WebUI
+                Instalar (solo la primera vez)
               </p>
-              <pre className="text-xs bg-gray-100 dark:bg-zinc-700 p-3 rounded-lg text-gray-600 dark:text-zinc-300 overflow-x-auto whitespace-pre-wrap">{`git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui
-cd stable-diffusion-webui
-./webui.sh --api --opt-split-attention`}</pre>
+              <pre className="text-xs bg-gray-100 dark:bg-zinc-700 p-3 rounded-lg text-gray-600 dark:text-zinc-300 overflow-x-auto whitespace-pre-wrap">{`cd stable-diffusion/
+chmod +x setup.sh
+./setup.sh`}</pre>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                2. Modelo recomendado para M1 8 GB (copiarlo en <code className="font-mono">models/Stable-diffusion/</code>)
-              </p>
-              <div className="text-xs bg-gray-100 dark:bg-zinc-700 p-3 rounded-lg text-gray-600 dark:text-zinc-300 space-y-1">
-                <p><span className="font-semibold text-green-600 dark:text-green-400">Recomendado:</span> DreamShaper 8 (~2 GB) — versátil, rápido en M1</p>
-                <p><span className="font-semibold text-blue-600 dark:text-blue-400">Alternativa:</span> v1-5-pruned-emaonly.ckpt (SD 1.5 oficial)</p>
-                <p className="text-amber-600 dark:text-amber-400">Evita modelos SDXL — requieren 16 GB+</p>
-                <p className="text-gray-400 dark:text-zinc-500 mt-2">Genera siempre en 512×512 o 512×768 para mejor rendimiento</p>
-              </div>
+            <div className="text-xs bg-gray-100 dark:bg-zinc-700 p-3 rounded-lg text-gray-600 dark:text-zinc-300 space-y-1">
+              <p>El modelo DreamShaper 8 (~2 GB) se descarga automáticamente la primera vez.</p>
+              <p className="text-gray-400 dark:text-zinc-500 mt-1">Una vez instalado, el servidor arranca solo al abrir la app.</p>
             </div>
             <p className="text-xs text-gray-500 dark:text-zinc-500">
-              WebUI estará en <code className="font-mono">http://127.0.0.1:7860</code>
+              Ruta de instalación: <code className="font-mono">~/.ollama-dash/stable-diffusion/</code>
             </p>
           </div>
           <button
