@@ -51,7 +51,10 @@ def _load():
         requires_safety_checker=False,
     ).to(DEVICE)
     _pipe.enable_attention_slicing()
+    _pipe.enable_vae_slicing()
     _img2img = StableDiffusionImg2ImgPipeline(**_pipe.components).to(DEVICE)
+    _img2img.enable_attention_slicing()
+    _img2img.enable_vae_slicing()
     _ready = True
     print("[SD] Model ready — accepting requests on port 7860")
 
@@ -77,8 +80,8 @@ def _generator(seed: int):
 def _on_step(pipe, step, _ts, kwargs):
     """Progress callback: updates state and decodes a preview every 5 steps."""
     total = _progress["total"]
-    _progress["step"]    = step
-    _progress["percent"] = step / total if total else 0
+    _progress["step"]    = step + 1
+    _progress["percent"] = (step + 1) / total if total else 0
 
     if step % 5 == 0:
         try:

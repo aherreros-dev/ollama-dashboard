@@ -34,6 +34,8 @@ export function ImageGenerator() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [switchingModel, setSwitchingModel] = useState(false);
+  const [warmingUp, setWarmingUp] = useState(false);
+  const warmupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [progress, setProgress] = useState<ImageGenerationProgress | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -150,9 +152,11 @@ export function ImageGenerator() {
     }
 
     setGenerating(true);
+    setWarmingUp(true);
     setError(null);
     setProgress({ step: 0, totalSteps: steps, percent: 0 });
     setImages([]);
+    warmupTimerRef.current = setTimeout(() => setWarmingUp(false), 12000);
 
     try {
       if (selectedModel) {
@@ -185,8 +189,10 @@ export function ImageGenerator() {
       setError(e instanceof Error ? e.message : "Error en la generación");
     } finally {
       setGenerating(false);
+      setWarmingUp(false);
       setSwitchingModel(false);
       setProgress(null);
+      if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
     }
   }, [prompt, negativePrompt, width, height, steps, cfgScale, seed, sampler, batchSize, selectedModel, mode, initImage, denoisingStrength]);
 
@@ -195,7 +201,9 @@ export function ImageGenerator() {
       await abortGeneration();
     } finally {
       setGenerating(false);
+      setWarmingUp(false);
       setProgress(null);
+      if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
     }
   }, []);
 
@@ -561,18 +569,31 @@ chmod +x setup.sh
           </button>
 
           {/* Progress bar */}
-          {progress && generating && !switchingModel && (
+          {generating && !switchingModel && (
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400">
-                <span>Paso {progress.step}/{progress.totalSteps}</span>
-                <span>{Math.round(progress.percent * 100)}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-500"
-                  style={{ width: `${progress.percent * 100}%` }}
-                />
-              </div>
+              {warmingUp ? (
+                <>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                    Preparando... (la primera vez tarda más)
+                  </p>
+                  <div className="h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full animate-pulse" style={{ width: "100%" }} />
+                  </div>
+                </>
+              ) : progress ? (
+                <>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400">
+                    <span>Paso {progress.step}/{progress.totalSteps}</span>
+                    <span>{Math.round(progress.percent * 100)}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-600 transition-all duration-500"
+                      style={{ width: `${progress.percent * 100}%` }}
+                    />
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
         </div>
