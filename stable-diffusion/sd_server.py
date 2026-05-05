@@ -34,9 +34,9 @@ SD_DIR     = Path(__file__).parent
 MODELS_DIR = SD_DIR / "models"
 MODEL_ID   = "Lykon/dreamshaper-8"
 DEVICE     = "mps" if torch.backends.mps.is_available() else "cpu"
-# Load UNet in float16 for speed; VAE decoder is patched to run in float32
-# to avoid the NaN/black-image bug on Apple Silicon MPS.
-DTYPE      = torch.float16 if DEVICE == "mps" else torch.float32
+# float16 produces NaN in both UNet attention and VAE on MPS → black images.
+# float32 is the only reliable option on Apple Silicon.
+DTYPE      = torch.float32
 PORT       = 7860
 
 SCHEDULERS = {
@@ -60,15 +60,6 @@ _progress = {"step": 0, "total": 20, "percent": 0.0, "image": None}
 
 # ── Model loader (background thread so server is reachable immediately) ───────
 
-def _patch_vae_for_mps(pipe):
-    """Keep VAE decoder in float32 to avoid black images on MPS with float16."""
-    pipe.vae.decoder = pipe.vae.decoder.to(dtype=torch.float32)
-    pipe.vae.post_quant_conv = pipe.vae.post_quant_conv.to(dtype=torch.float32)
-    orig_decode = pipe.vae.decode
-    def _safe_decode(z, **kwargs):
-        return orig_decode(z.to(dtype=torch.float32), **kwargs)
-    pipe.vae.decode = _safe_decode
-
 def _load():
     global _pipe, _img2img, _ready
     print(f"[SD] Loading {MODEL_ID} on {DEVICE} ({DTYPE}) …")
@@ -79,8 +70,6 @@ def _load():
         safety_checker=None,
         requires_safety_checker=False,
     ).to(DEVICE)
-    if DEVICE == "mps":
-        _patch_vae_for_mps(_pipe)
     _pipe.enable_attention_slicing()
     _pipe.enable_vae_slicing()
     _img2img = StableDiffusionImg2ImgPipeline(**_pipe.components).to(DEVICE)
