@@ -46,7 +46,7 @@ export function ImageGenerator() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
-  const [steps, setSteps] = useState(15);
+  const [steps, setSteps] = useState(10);
   const [cfgScale, setCfgScale] = useState(7);
   const [seed, setSeed] = useState(-1);
   const [sampler, setSampler] = useState("DPM++ 2M");
