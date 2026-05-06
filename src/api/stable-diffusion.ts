@@ -11,7 +11,8 @@ import type {
   StableDiffusionModel,
 } from "./types";
 
-const HOSTS = ["http://127.0.0.1:7860", "http://127.0.0.1:7861"] as const;
+const SD_HOST = "http://127.0.0.1:7860";
+const HOSTS = [SD_HOST, "http://127.0.0.1:7861"] as const;
 
 // Cache the active host for 30 s to avoid repeated probing
 let cachedHost: string | null = null;
@@ -202,6 +203,15 @@ export async function abortGeneration(): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+export async function preloadSD(): Promise<void> {
+  await fetch(`${SD_HOST}/sdapi/v1/preload`, { method: "POST" }).catch(() => {});
+}
+
+export async function unloadSD(): Promise<void> {
+  await fetch(`${SD_HOST}/sdapi/v1/unload`, { method: "POST" }).catch(() => {});
+  invalidateHostCache();
 }
 
 export async function switchSDModel(modelTitle: string): Promise<boolean> {

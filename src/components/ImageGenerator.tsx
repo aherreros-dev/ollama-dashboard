@@ -46,7 +46,7 @@ export function ImageGenerator() {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
-  const [steps, setSteps] = useState(10);
+  const [steps, setSteps] = useState(8);
   const [cfgScale, setCfgScale] = useState(7);
   const [seed, setSeed] = useState(-1);
   const [sampler, setSampler] = useState("DPM++ 2M");
@@ -63,26 +63,6 @@ export function ImageGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const modelReady = sdModels.length > 0;
-
-  const freeOllamaMemory = useCallback(async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:11434/api/ps");
-      if (!res.ok) return;
-      const data = await res.json();
-      const models: { name: string }[] = data.models ?? [];
-      await Promise.all(
-        models.map((m) =>
-          fetch("http://127.0.0.1:11434/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: m.name, keep_alive: 0 }),
-          }).catch(() => {})
-        )
-      );
-    } catch {
-      // Ollama not running — no-op
-    }
-  }, []);
 
   const checkStatus = useCallback(async () => {
     setLoading(true);
@@ -179,7 +159,6 @@ export function ImageGenerator() {
     warmupTimerRef.current = setTimeout(() => setWarmingUp(false), 12000);
 
     try {
-      await freeOllamaMemory();
       if (selectedModel) {
         setSwitchingModel(true);
         await switchSDModel(selectedModel);
@@ -215,7 +194,7 @@ export function ImageGenerator() {
       setProgress(null);
       if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
     }
-  }, [prompt, negativePrompt, width, height, steps, cfgScale, seed, sampler, batchSize, selectedModel, mode, initImage, denoisingStrength, freeOllamaMemory]);
+  }, [prompt, negativePrompt, width, height, steps, cfgScale, seed, sampler, batchSize, selectedModel, mode, initImage, denoisingStrength]);
 
   const handleAbort = useCallback(async () => {
     try {
@@ -456,7 +435,7 @@ chmod +x setup.sh
               ))}
             </div>
             <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1.5">
-              512×512 es lo más rápido en M1
+              512×512 · 8 pasos es la config más rápida
             </p>
           </div>
 
@@ -595,7 +574,7 @@ chmod +x setup.sh
               {warmingUp ? (
                 <>
                   <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                    Preparando... (la primera vez tarda más)
+                    Iniciando generación...
                   </p>
                   <div className="h-2 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                     <div className="h-full bg-amber-500 rounded-full animate-pulse" style={{ width: "100%" }} />

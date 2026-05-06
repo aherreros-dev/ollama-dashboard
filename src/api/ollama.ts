@@ -59,3 +59,25 @@ export function onPullProgress(
     callback(event.payload);
   });
 }
+
+const OLLAMA_BASE = "http://127.0.0.1:11434";
+
+export async function unloadModel(name: string): Promise<void> {
+  await fetch(`${OLLAMA_BASE}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: name, keep_alive: 0 }),
+  }).catch(() => {});
+}
+
+export async function unloadAllModels(): Promise<void> {
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/ps`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const loaded: { name: string }[] = data.models ?? [];
+    await Promise.all(loaded.map((m) => unloadModel(m.name)));
+  } catch {
+    // Ollama not running — no-op
+  }
+}

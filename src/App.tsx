@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SlidersHorizontal, Database, Sun, Moon, Monitor, ImageIcon } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { ModelSelector } from "./components/ModelSelector";
@@ -9,6 +9,7 @@ import { ImageGenerator } from "./components/ImageGenerator";
 import { useStore } from "./store";
 import type { Theme } from "./store";
 import * as api from "./api/ollama";
+import { preloadSD, unloadSD } from "./api/stable-diffusion";
 
 type View = "chat" | "models" | "images";
 
@@ -57,9 +58,26 @@ export default function App() {
     return () => clearInterval(interval);
   }, [setModels]);
 
+  const handleSetView = useCallback((next: View) => {
+    setView((prev) => {
+      if (prev === next) return prev;
+      if (next === "images") {
+        // Free Ollama RAM before loading SD model
+        api.unloadAllModels();
+        preloadSD();
+      }
+      if (prev === "images") {
+        // Free SD RAM when returning to chat/models
+        unloadSD();
+      }
+      return next;
+    });
+    setShowSettings(false);
+  }, []);
+
   const handleNewChat = () => {
     newChat(models[0]?.name || "");
-    setView("chat");
+    handleSetView("chat");
   };
 
   const cycleTheme = () => {
@@ -71,7 +89,7 @@ export default function App() {
 
   const navBtn = (v: View, icon: React.ReactNode, title: string) => (
     <button
-      onClick={() => { setView(v); setShowSettings(false); }}
+      onClick={() => handleSetView(v)}
       className={`p-2 rounded transition-colors ${
         view === v
           ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"

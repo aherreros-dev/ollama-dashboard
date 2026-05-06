@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import type { OllamaModel } from "../api/types";
+import { unloadModel } from "../api/ollama";
 
 export function ModelSelector() {
   const { models, chats, activeChatId, setChatModel } = useStore();
@@ -13,8 +14,12 @@ export function ModelSelector() {
   }, [activeChat?.model]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelected(e.target.value);
-    if (activeChatId) setChatModel(activeChatId, e.target.value);
+    const next = e.target.value;
+    if (next === selected) return;
+    // Unload the previous model immediately so the new one has full RAM available
+    if (selected) unloadModel(selected);
+    setSelected(next);
+    if (activeChatId) setChatModel(activeChatId, next);
   };
 
   const fmt = (m: OllamaModel) => {
