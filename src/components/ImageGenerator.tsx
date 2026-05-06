@@ -64,6 +64,26 @@ export function ImageGenerator() {
 
   const modelReady = sdModels.length > 0;
 
+  const freeOllamaMemory = useCallback(async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:11434/api/ps");
+      if (!res.ok) return;
+      const data = await res.json();
+      const models: { name: string }[] = data.models ?? [];
+      await Promise.all(
+        models.map((m) =>
+          fetch("http://127.0.0.1:11434/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model: m.name, keep_alive: 0 }),
+          }).catch(() => {})
+        )
+      );
+    } catch {
+      // Ollama not running — no-op
+    }
+  }, []);
+
   const checkStatus = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -159,6 +179,7 @@ export function ImageGenerator() {
     warmupTimerRef.current = setTimeout(() => setWarmingUp(false), 12000);
 
     try {
+      await freeOllamaMemory();
       if (selectedModel) {
         setSwitchingModel(true);
         await switchSDModel(selectedModel);
@@ -194,7 +215,7 @@ export function ImageGenerator() {
       setProgress(null);
       if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
     }
-  }, [prompt, negativePrompt, width, height, steps, cfgScale, seed, sampler, batchSize, selectedModel, mode, initImage, denoisingStrength]);
+  }, [prompt, negativePrompt, width, height, steps, cfgScale, seed, sampler, batchSize, selectedModel, mode, initImage, denoisingStrength, freeOllamaMemory]);
 
   const handleAbort = useCallback(async () => {
     try {
